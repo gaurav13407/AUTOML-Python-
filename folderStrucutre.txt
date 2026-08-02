@@ -1,0 +1,50 @@
+automl-engine/
+├── README.md
+├── requirements.txt
+├── .gitignore
+├── docker-compose.yml
+├── Dockerfile
+│
+├── data/
+│   ├── raw/                  # uploaded/sample datasets
+│   └── processed/            # cleaned/feature-engineered datasets
+│
+├── backend/
+│   ├── main.py                # FastAPI entrypoint
+│   ├── api/
+│   │   ├── routes_upload.py   # dataset upload endpoint
+│   │   ├── routes_train.py    # trigger training job
+│   │   └── routes_results.py  # fetch model comparison/results
+│   ├── core/
+│   │   ├── preprocessing.py   # cleaning, encoding, scaling
+│   │   ├── feature_selection.py
+│   │   ├── model_zoo.py       # registry of candidate models
+│   │   ├── trainer.py         # training + cross-validation loop
+│   │   ├── tuner.py           # Optuna hyperparameter tuning
+│   │   └── evaluator.py       # metrics, leaderboard generation
+│   ├── db/
+│   │   ├── models.py          # SQLAlchemy models
+│   │   └── database.py
+│   └── utils/
+│       └── logger.py
+│
+├── frontend/                  # React (or streamlit_app.py if using Streamlit)
+│   ├── src/
+│   │   ├── components/
+│   │   ├── pages/
+│   │   └── App.jsx
+│   └── package.json
+│
+├── models/
+│   └── saved/                 # serialized .pkl/.joblib trained models
+│
+├── notebooks/
+│   └── experiments.ipynb      # exploratory testing before productionizing
+│
+├── tests/
+│   ├── test_preprocessing.py
+│   ├── test_trainer.py
+│   └── test_api.py
+│
+└── docs/
+    └── architecture.md
