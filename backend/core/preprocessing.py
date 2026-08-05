@@ -14,7 +14,7 @@ from sklearn.impute import SimpleImputer
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
-
+from pandas.api.types import is_integer_dtype
 
 def load_data(filepath: str) -> pd.DataFrame:
     df = pd.read_csv(filepath)
@@ -59,6 +59,86 @@ def split_data(
     )
 
 
+def analyze_dataset(
+    df: pd.DataFrame,
+    target_col: str,
+    cardinality_threshold: int = 20,
+) -> pd.DataFrame:
+    """
+    Analyze dataset and automatically:
+    - Remove constant columns
+    - Convert date columns into numerical features
+    - Remove high-cardinality categorical columns
+    """
+
+    df = df.copy()
+
+    # -----------------------------
+    # Remove constant columns
+    # -----------------------------
+    constant_cols = [
+        col for col in df.columns
+        if col != target_col and df[col].nunique(dropna=False) <= 1
+    ]
+
+    if constant_cols:
+        print(f"Removing constant columns: {constant_cols}")
+        df.drop(columns=constant_cols, inplace=True)
+
+    # -----------------------------
+    # Detect date columns
+    # -----------------------------
+    object_cols = df.select_dtypes(include=["object", "string"]).columns
+
+    for col in object_cols:
+
+        if col == target_col:
+            continue
+
+        converted=pd.to_datetime(
+                df[col],
+                errors="coerce",
+                )
+
+        if converted.notna().mean()>0.9:
+            converted = pd.to_datetime(df[col], errors="raise")
+
+            print(f"Detected date column: {col}")
+
+            df[f"{col}_year"] = converted.dt.year
+            df[f"{col}_month"] = converted.dt.month
+            df[f"{col}_day"] = converted.dt.day
+            df[f"{col}_dayofweek"] = converted.dt.dayofweek
+
+            df.drop(columns=[col], inplace=True)
+
+
+
+
+    # -----------------------------
+    # Detect high-cardinality columns
+    # -----------------------------
+    object_cols = df.select_dtypes(include=["object", "string"]).columns
+
+    high_cardinality = []
+
+    for col in object_cols:
+
+        if col == target_col:
+            continue
+
+        unique_values = df[col].nunique()
+
+        if unique_values > cardinality_threshold:
+            high_cardinality.append(col)
+
+    if high_cardinality:
+        print(f"Dropping high-cardinality columns: {high_cardinality}")
+        df.drop(columns=high_cardinality, inplace=True)
+
+    return df
+
+
 def build_preprocessor(
     X_train: pd.DataFrame,
     scale_numeric: bool = True,
@@ -70,6 +150,7 @@ def build_preprocessor(
         X_train.select_dtypes(include=["object", "category", "string"])
         .columns.tolist()
     )
+
 
     if scale_numeric:
         numeric_pipeline = Pipeline(
@@ -117,6 +198,7 @@ def preprocessing_pipeline(
     df = load_data(filepath)
 
     basic_info(df)
+    df=analyze_dataset(df,target_col)
 
     X_train, X_test, y_train, y_test = split_data(
         df,
