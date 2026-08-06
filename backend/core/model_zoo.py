@@ -53,159 +53,168 @@ def detect_task(y):
 #-------------Classification Models ---------------
 
 def get_classification_models():
-    return{
-            "Logistic Regression":{
-                "model":LogisticRegression(
-                    random_state=42,
-                    max_iter=1000,
-                    ),
 
-                "requires_scaling":True,
-                "supports_feature_importance":False,
-                "supports_probability":True,
-                },
+    return {
 
-            "Decision Tree":{
-                "model":DecisionTreeClassifier(
-                    random_state=42,
-                    ),
-                "requires_scaling":False,
-                "supports_feature_importance":True,
-                "supports_probability":True,
-                },
-            "Random Forest":{
-            "model":RandomForestClassifier(
+        "Logistic Regression": {
+            "model": LogisticRegression(
+                random_state=42,
+                max_iter=1000,
+            ),
+            "family": "linear",
+            "requires_scaling": True,
+            "supports_feature_importance": False,
+            "supports_probability": True,
+            "supports_multiclass": True,
+            "supports_hyperparameter_tuning": True,
+        },
+
+        "Decision Tree": {
+            "model": DecisionTreeClassifier(
+                random_state=42,
+            ),
+            "family": "tree",
+            "requires_scaling": False,
+            "supports_feature_importance": True,
+            "supports_probability": True,
+            "supports_multiclass": True,
+            "supports_hyperparameter_tuning": True,
+        },
+
+        "Random Forest": {
+            "model": RandomForestClassifier(
                 random_state=42,
                 n_estimators=100,
-                ),
-                "requires_scaling":False,
-                "supports_feature_importance":True,
-                "supports_probability":True,
-            },
-            "KNN":{
-                "model":KNeighborsClassifier(),
-                "requires_scaling":True,
-                "supports_feature_importance":False,
-                "supports_probability":True,
-                },
-            "SVM":{
-                "model":SVC(
-                    probability=True,
-                    random_state=42,
-                    ),
-                "requires_scaling":True,
-                "supports_feature_importance":False,
-                "supports_probability":True,
-                },
-            "XGBoost":{
-                "model":XGBClassifier(
-                    random_state=42,
-                    eval_metric="logloss",
-                    ),
-                "requires_scaling":False,
-                "supports_feature_importance":True,
-                "supports_probability":True,
-                },
-            "lightGBM":{
-                    "model":LGBMClassifier(
-                        random_state=42,
-                        verbose=-1,
-                        ),
-                    "requires_scaling":False,
-                    "supports_feature_importance":True,
-                    "supports_probability":True,
-                    },
-}
+            ),
+            "family": "tree",
+            "requires_scaling": False,
+            "supports_feature_importance": True,
+            "supports_probability": True,
+            "supports_multiclass": True,
+            "supports_hyperparameter_tuning": True,
+        },
+
+        "KNN": {
+            "model": KNeighborsClassifier(),
+            "family": "distance",
+            "requires_scaling": True,
+            "supports_feature_importance": False,
+            "supports_probability": True,
+            "supports_multiclass": True,
+            "supports_hyperparameter_tuning": True,
+        },
+
+        "SVM": {
+            "model": SVC(
+                probability=True,
+                random_state=42,
+            ),
+            "family": "kernel",
+            "requires_scaling": True,
+            "supports_feature_importance": False,
+            "supports_probability": True,
+            "supports_multiclass": True,
+            "supports_hyperparameter_tuning": True,
+        },
+
+        "XGBoost": {
+            "model": XGBClassifier(
+                random_state=42,
+                eval_metric="logloss",
+            ),
+            "family": "boosting",
+            "requires_scaling": False,
+            "supports_feature_importance": True,
+            "supports_probability": True,
+            "supports_multiclass": True,
+            "supports_hyperparameter_tuning": True,
+        },
+
+        "LightGBM": {
+            "model": LGBMClassifier(
+                random_state=42,
+                verbose=-1,
+            ),
+            "family": "boosting",
+            "requires_scaling": False,
+            "supports_feature_importance": True,
+            "supports_probability": True,
+            "supports_multiclass": True,
+            "supports_hyperparameter_tuning": True,
+        },
+    }
 
 #-------Regresssion Models----------------
-
 def get_regression_models():
 
     return {
 
         "Linear Regression": {
-
             "model": LinearRegression(),
-
+            "family": "linear",
             "requires_scaling": True,
-
             "supports_feature_importance": False,
-
+            "supports_hyperparameter_tuning": False,
         },
 
         "Decision Tree": {
-
             "model": DecisionTreeRegressor(
                 random_state=42,
             ),
-
+            "family": "tree",
             "requires_scaling": False,
-
             "supports_feature_importance": True,
-
+            "supports_hyperparameter_tuning": True,
         },
 
         "Random Forest": {
-
             "model": RandomForestRegressor(
                 random_state=42,
                 n_estimators=100,
             ),
-
+            "family": "tree",
             "requires_scaling": False,
-
             "supports_feature_importance": True,
-
+            "supports_hyperparameter_tuning": True,
         },
 
         "KNN": {
-
             "model": KNeighborsRegressor(),
-
+            "family": "distance",
             "requires_scaling": True,
-
             "supports_feature_importance": False,
-
+            "supports_hyperparameter_tuning": True,
         },
 
         "SVR": {
-
             "model": SVR(),
-
+            "family": "kernel",
             "requires_scaling": True,
-
             "supports_feature_importance": False,
-
+            "supports_hyperparameter_tuning": True,
         },
 
         "XGBoost": {
-
             "model": XGBRegressor(
                 random_state=42,
             ),
-
+            "family": "boosting",
             "requires_scaling": False,
-
             "supports_feature_importance": True,
-
+            "supports_hyperparameter_tuning": True,
         },
 
         "LightGBM": {
-
             "model": LGBMRegressor(
                 random_state=42,
                 verbose=-1,
             ),
-
+            "family": "boosting",
             "requires_scaling": False,
-
             "supports_feature_importance": True,
-
+            "supports_hyperparameter_tuning": True,
         },
-
     }
-
-
 #-----------------Public API-------------------------------
 
 def get_models(task:str):
