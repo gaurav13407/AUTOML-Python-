@@ -5,7 +5,6 @@ Generic preprocessing pipeline for tabular datasets.
 Prevents data leakage by fitting transformers only on training data.
 """
 
-from typing import Tuple
 
 import pandas as pd
 
@@ -16,10 +15,23 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler, _target_encoder
 from pandas.api.types import is_integer_dtype
 from sklearn.preprocessing import LabelEncoder
+from sklearn.utils import metadata_routing
+
+try:
+    from backend.utils.logger import logger
+except ModuleNotFoundError:
+    import sys
+    from pathlib import Path
+
+    # Add the backend directory to Python's search path
+    sys.path.append(str(Path(__file__).resolve().parent.parent))
+
+    from utils.logger import logger
+
 
 def load_data(filepath: str) -> pd.DataFrame:
     df = pd.read_csv(filepath)
-    print(f"Loaded {filepath} -> {df.shape}")
+    logger.info(f"Loaded {filepath} -> {df.shape}")
     return df
 
 
@@ -112,10 +124,10 @@ def remove_identifier_columns(
             cols_to_drop.append(col)
 
     if cols_to_drop:
-        print(f"Removing identifier columns: {cols_to_drop}")
+        logger.info(f"Removing identifier columns: {cols_to_drop}")
         df.drop(columns=cols_to_drop, inplace=True)
 
-    return df
+    return df,cols_to_drop
 
 
 def encode_target(
@@ -131,7 +143,7 @@ def encode_target(
             ):
         encoder=LabelEncoder()
         df[target_col]=encoder.fit_transform(df[target_col])
-        print(f"Target encoded:{list(encoder.classes_)}")
+        logger.info(f"Target encoded:{list(encoder.classes_)}")
     return df,encoder 
 
 
@@ -148,7 +160,14 @@ def analyze_dataset(
     - Convert date columns into numerical features
     - Remove high-cardinality categorical columns
     """
-
+    metadata={
+            "original_shape":df.shape,
+            "target_column":target_col,
+            "constant_columns":[],
+            "identifier_columns":[],
+            "date_columns":[],
+            "high_cardinality_columns":[],
+            }
     df = df.copy()
 
     # -----------------------------
@@ -160,13 +179,15 @@ def analyze_dataset(
     ]
 
     if constant_cols:
-        print(f"Removing constant columns: {constant_cols}")
+        metadata["constant_columns"]=constant_cols
+        logger.info(f"Removing constant columns: {constant_cols}")
         df.drop(columns=constant_cols, inplace=True)
 
-    df=remove_identifier_columns(
+    df,identifier_cols=remove_identifier_columns(
         df,
         target_col,
         )
+    metadata["identifier_columns"]=identifier_cols
 
     # -----------------------------
     # Detect date columns
@@ -186,8 +207,8 @@ def analyze_dataset(
         if converted.notna().mean()>0.9:
             converted = pd.to_datetime(df[col], errors="raise")
 
-            print(f"Detected date column: {col}")
-
+            logger.info(f"Detected date column: {col}")
+            metadata["date_columns"].append(col)
             df[f"{col}_year"] = converted.dt.year
             df[f"{col}_month"] = converted.dt.month
             df[f"{col}_day"] = converted.dt.day
@@ -214,12 +235,14 @@ def analyze_dataset(
 
         if unique_values > cardinality_threshold:
             high_cardinality.append(col)
-
+    metadata["high_cardinality_columns"]=high_cardinality
     if high_cardinality:
-        print(f"Dropping high-cardinality columns: {high_cardinality}")
+        logger.info(f"Dropping high-cardinality columns: {high_cardinality}")
         df.drop(columns=high_cardinality, inplace=True)
 
-    return df
+    metadata["processed_shape"]=df.shape
+
+    return df,metadata
 
 
 def build_preprocessor(
@@ -281,7 +304,7 @@ def preprocessing_pipeline(
     df = load_data(filepath)
 
     basic_info(df)
-    df = analyze_dataset(df, target_col)
+    df ,metadata= analyze_dataset(df, target_col)
 
     df,target_encoder=encode_target(df,target_col)
 
@@ -307,6 +330,7 @@ def preprocessing_pipeline(
         y_test,
         preprocessor,
         target_encoder,
+        metadata,
     )
 
 
@@ -349,6 +373,7 @@ if __name__ == "__main__":
         y_test,
         preprocessor,
         target_encoder,
+        metadata,
 
     ) = preprocessing_pipeline(
         filepath=args.filepath,
@@ -362,5 +387,10 @@ if __name__ == "__main__":
     print("X_test :", X_test.shape)
     print("y_train:", y_train.shape)
     print("y_test :", y_test.shape)
+
+    print("\n========== METADATA ==========")
+
+    for key, value in metadata.items():
+        print(f"{key}: {value}")
 
     print("\nPreprocessor Built Successfully")

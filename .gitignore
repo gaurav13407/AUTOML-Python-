@@ -1,2 +1,4 @@
 venv/
-folderStructure.txt
+# Logs
+logs/
+*.log
