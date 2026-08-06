@@ -13,8 +13,9 @@ from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.preprocessing import OneHotEncoder, StandardScaler, _target_encoder
 from pandas.api.types import is_integer_dtype
+from sklearn.preprocessing import LabelEncoder
 
 def load_data(filepath: str) -> pd.DataFrame:
     df = pd.read_csv(filepath)
@@ -58,6 +59,83 @@ def split_data(
         stratify=stratify,
     )
 
+def remove_identifier_columns(
+    df: pd.DataFrame,
+    target_col: str,
+) -> pd.DataFrame:
+    """
+    Remove identifier columns such as:
+    Id, CustomerID, OrderID, EmployeeID, etc.
+
+    Detection:
+    1. Common ID column names.
+    2. Integer column with all unique values.
+    """
+
+    df = df.copy()
+
+    id_keywords = {
+        "id",
+        "customerid",
+        "customer_id",
+        "userid",
+        "user_id",
+        "employeeid",
+        "employee_id",
+        "orderid",
+        "order_id",
+        "invoiceid",
+        "invoice_id",
+        "transactionid",
+        "transaction_id",
+    }
+
+    cols_to_drop = []
+
+    for col in df.columns:
+
+        if col == target_col:
+            continue
+
+        # Rule 1: Column name
+        if col.lower() in id_keywords:
+            cols_to_drop.append(col)
+            continue
+
+        # Rule 2: Integer column with unique values
+        if (
+            is_integer_dtype(df[col])
+            and df[col].is_unique
+            and df[col].min()==1
+            and df[col].max()==len(df)
+        ):
+            cols_to_drop.append(col)
+
+    if cols_to_drop:
+        print(f"Removing identifier columns: {cols_to_drop}")
+        df.drop(columns=cols_to_drop, inplace=True)
+
+    return df
+
+
+def encode_target(
+        df:pd.DataFrame,
+        target_col:str,
+        ):
+    # encode column if it is categorical 
+    df=df.copy()
+    encoder=None 
+    if(
+        df[target_col].dtype=="object"
+        or str(df[target_col].dtype)=="category"
+            ):
+        encoder=LabelEncoder()
+        df[target_col]=encoder.fit_transform(df[target_col])
+        print(f"Target encoded:{list(encoder.classes_)}")
+    return df,encoder 
+
+
+
 
 def analyze_dataset(
     df: pd.DataFrame,
@@ -84,6 +162,11 @@ def analyze_dataset(
     if constant_cols:
         print(f"Removing constant columns: {constant_cols}")
         df.drop(columns=constant_cols, inplace=True)
+
+    df=remove_identifier_columns(
+        df,
+        target_col,
+        )
 
     # -----------------------------
     # Detect date columns
@@ -198,7 +281,9 @@ def preprocessing_pipeline(
     df = load_data(filepath)
 
     basic_info(df)
-    df=analyze_dataset(df,target_col)
+    df = analyze_dataset(df, target_col)
+
+    df,target_encoder=encode_target(df,target_col)
 
     X_train, X_test, y_train, y_test = split_data(
         df,
@@ -221,6 +306,7 @@ def preprocessing_pipeline(
         y_train,
         y_test,
         preprocessor,
+        target_encoder,
     )
 
 
@@ -262,13 +348,15 @@ if __name__ == "__main__":
         y_train,
         y_test,
         preprocessor,
+        target_encoder,
+
     ) = preprocessing_pipeline(
         filepath=args.filepath,
         target_col=args.target,
         test_size=args.test_size,
         scale_numeric=not args.no_scale,
     )
-
+    print("Target encoded:", target_encoder is not None)
     print("\n========== RESULTS ==========")
     print("X_train:", X_train.shape)
     print("X_test :", X_test.shape)
