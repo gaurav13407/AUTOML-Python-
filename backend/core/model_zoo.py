@@ -40,12 +40,24 @@ from lightgbm import LGBMRegressor
 
 
 #----------Detect Task------------
+import pandas as pd
+
+
 def detect_task(y):
-    # Automatically determine whether the problem is classification,regression
+    """
+    Automatically determine whether the problem is
+    classification or regression.
+
+    Supports both pandas Series and NumPy arrays.
+    """
+
+    if not isinstance(y, pd.Series):
+        y = pd.Series(y)
 
     if not is_numeric_dtype(y):
         return "classification"
-    if y.nunique()<=20:
+
+    if y.nunique() <= 20:
         return "classification"
 
     return "regression"
