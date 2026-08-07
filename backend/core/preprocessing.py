@@ -1,4 +1,4 @@
-"""
+"""df[col]
 backend/core/preprocessing.py
 
 Generic preprocessing pipeline for tabular datasets.
@@ -15,7 +15,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler, _target_encoder
 from pandas.api.types import is_integer_dtype
 from sklearn.preprocessing import LabelEncoder
-from sklearn.utils import metadata_routing
+from sklearn.utils import column_or_1d, metadata_routing
 
 try:
     from backend.utils.logger import logger
@@ -63,13 +63,53 @@ def split_data(
     ):
         stratify = y
 
-    return train_test_split(
+    X_train,X_test,y_train,y_test=train_test_split(
         X,
         y,
         test_size=test_size,
         random_state=random_state,
         stratify=stratify,
     )
+    logger.info(f"Train Shape:X={X_train.shape},y={y_train.shape}")
+    logger.info(f"Test Shape:X={X_test.shape},y={y_test.shape}")
+
+    return(
+            X_train,
+            X_test,
+            y_train,
+            y_test
+            )
+
+def is_likely_date_column(
+        column_name:str,
+        series:pd.Series,
+        )->bool:
+    # Determine wether a column is likely to contains dates.
+    date_keywords={
+        "date",
+        "time",
+        "timestamp",
+        "datetime",
+        "joined",
+        "join",
+        "dob",
+        "birth",
+            }
+    if not any(keyword in column_name.lower() for keyword in date_keywords):
+        return False 
+    if any(keyword in column_name.lower() for keyword in date_keywords):
+        return True 
+    sample=series.dropna().head(20)
+
+    if sample.empty:
+        return False 
+
+    converted=pd.to_datetime(
+            sample,
+            errors="coerce"
+            )
+    return converted.notna().mean() >=0.9
+
 
 def remove_identifier_columns(
     df: pd.DataFrame,
@@ -199,22 +239,22 @@ def analyze_dataset(
         if col == target_col:
             continue
 
+        if not is_likely_date_column(col,df[col]):
+            continue
+
         converted=pd.to_datetime(
                 df[col],
                 errors="coerce",
                 )
 
-        if converted.notna().mean()>0.9:
-            converted = pd.to_datetime(df[col], errors="raise")
+        logger.info(f"Detected date column: {col}")
+        metadata["date_columns"].append(col)
+        df[f"{col}_year"] = converted.dt.year
+        df[f"{col}_month"] = converted.dt.month
+        df[f"{col}_day"] = converted.dt.day
+        df[f"{col}_dayofweek"] = converted.dt.dayofweek
 
-            logger.info(f"Detected date column: {col}")
-            metadata["date_columns"].append(col)
-            df[f"{col}_year"] = converted.dt.year
-            df[f"{col}_month"] = converted.dt.month
-            df[f"{col}_day"] = converted.dt.day
-            df[f"{col}_dayofweek"] = converted.dt.dayofweek
-
-            df.drop(columns=[col], inplace=True)
+        df.drop(columns=[col], inplace=True)
 
 
 
@@ -256,6 +296,8 @@ def build_preprocessor(
         X_train.select_dtypes(include=["object", "category", "string"])
         .columns.tolist()
     )
+    logger.info(f"Numeric Columns({len(numeric_cols)}):{numeric_cols}")
+    logger.info(f"cateorical Columns ({len(categorical_cols)}):{categorical_cols}")
 
 
     if scale_numeric:
@@ -305,6 +347,17 @@ def preprocessing_pipeline(
 
     basic_info(df)
     df ,metadata= analyze_dataset(df, target_col)
+    #Missing VAlue Summary 
+    missing_summary={
+            col:int (df[col].isnull().sum())
+            for col in df.columns
+            if df[col].isnull().sum() >0 
+            }
+    metadata['missing_value']=missing_summary
+    if missing_summary:
+        logger.info("Missing VAlue Detected:")
+        for col,count in missing_summary.items():
+            logger.info(f"{col}:{count}")
 
     df,target_encoder=encode_target(df,target_col)
 
