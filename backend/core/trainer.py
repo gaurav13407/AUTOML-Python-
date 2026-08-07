@@ -19,6 +19,7 @@ def create_result(
         task:str,
         model,
         y_pred,
+        y_prob,
         training_time:float,
         status:str="success",
         error:str | None=None,
@@ -30,6 +31,7 @@ def create_result(
             "task":task,
             "model":model,
             "y_pred":y_pred,
+            "y_prob":y_prob,
             "training_time":round(training_time,4),
             "status":status,
             "error":error,
@@ -59,6 +61,11 @@ def train_single_model(
 
         y_pred = model.predict(X_test)
 
+        y_prob=None 
+
+        if model_info.get("supports_probability",False):
+            y_prob=model.predict_proba(X_test)
+
         training_time = time.perf_counter() - start
 
         logger.info(
@@ -70,6 +77,7 @@ def train_single_model(
             task=task,
             model=model,
             y_pred=y_pred,
+            y_prob=y_prob,
             training_time=training_time,
         )
 
@@ -82,6 +90,7 @@ def train_single_model(
             task=task,
             model=None,
             y_pred=None,
+            y_prob=None,
             training_time=0,
             status="failed",
             error=str(e),
