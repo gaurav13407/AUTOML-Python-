@@ -351,7 +351,38 @@ def create_leaderboard(
     return leaderboard
 
 
+def get_best_model(
+        evaluated_result:list[dict[str,Any]],
+        leaderboard:pd.DataFrame,
+        ):
+    if leaderboard.empty:
+        logger.warning("CAnnot select best model:leaderboard is empty.")
+        return None 
 
+    best_model_name=leaderboard.iloc[0]["model"]
+
+    for result in evaluated_result:
+        if(
+                result["status"]=="success"
+                and result["model_name"]==best_model_name
+                ):
+            logger.info(
+                    f"Best Model selected:{best_model_name}"
+                    )
+            return{
+                    "model_name":best_model_name,
+                    "model":result["model"],
+                    "task":result["task"],
+                    "metrics":result.get("metrics",{}),
+                    "training_time":result["training_time"],
+                    "y_pred":result.get("y_pred"),
+                    "y_prob":result.get("y_prob"),
+                    }
+    logger.warning(
+                    f"Best Model '{best_model_name}' was not found"
+                    "in evaluated results"
+                    )
+    return None 
 # ============================================================
 # PUBLIC API
 # ============================================================
@@ -383,6 +414,21 @@ def evaluate_models(
         task=task,
     )
 
+    best_model=get_best_model(
+            evaluated_results,
+            leaderboard,
+            )
+    print("\n---------------Best Model--------------------")
+    if best_model is not None:
+        print("Model        :", best_model["model_name"])
+        print("Task         :", best_model["task"])
+        print("Training Time:", best_model["training_time"])
+        print("Metrics      :", best_model["metrics"])
+
+    else:
+
+        print("No successful model found.")
+
     logger.info(
         "Evaluation completed."
     )
@@ -390,6 +436,7 @@ def evaluate_models(
     return (
         evaluated_results,
         leaderboard,
+        best_model
     )
 
 
@@ -447,7 +494,7 @@ if __name__ == "__main__":
     # Evaluate
     # --------------------------------------------------------
 
-    evaluated_results, leaderboard = evaluate_models(
+    evaluated_results, leaderboard,best_model = evaluate_models(
         results=results,
         y_test=y_test,
         task=task,
