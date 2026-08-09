@@ -39,7 +39,7 @@ from backend.core.trainer import (
 from backend.core.evaluator import (
     evaluate_models,
 )
-
+from backend.core.model_manager import save_model
 
 def run_automl(
     filepath: str,
@@ -143,6 +143,27 @@ def run_automl(
         task=task,
     )
 
+    #=========================================================
+    #==============================SAVE BEST MODEL==========
+    #====================================================== 
+
+    saved_model_path=None 
+    if best_model is not None:
+        saved_model_path=save_model(
+                model=best_model["model"],
+                preprocessor=preprocessor,
+                target_encoder=target_encoder,
+                task=task,
+                metadata=metadata,
+                metrics=best_model["metrics"],
+                model_name=best_model["model_name"]
+                )
+        logger.info(
+                f"Best Model saved:{saved_model_path}"
+                )
+    else:
+        logger.warning("No best model available to save.")
+
     # ==========================================================
     # FINAL RESULT
     # ==========================================================
@@ -180,6 +201,8 @@ def run_automl(
         "leaderboard": leaderboard,
 
         "best_model": best_model,
+
+        "saved_model_path":saved_model_path,
 
         "X_test": X_test,
 
@@ -286,3 +309,5 @@ if __name__ == "__main__":
         print(
             "No successful model found."
         )
+
+

@@ -1,4 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+
+# Virtual environments
 venv/
+.venv/
+
 # Logs
 logs/
 *.log
+
+# Saved ML models
+models/saved/
+*.joblib
+*.pkl
+
+# Data
+data/raw/*
+data/processed/*
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Environment
+.env
+.env# Python
+__pycache__/
+*.py[cod]
+*.so
+
+# Virtual environments
+venv/
+.venv/
+
+# Logs
+logs/
+*.log
+
+# Saved ML models
+models/saved/
+*.joblib
+*.pkl
+
+# Data
+data/raw/*
+data/processed/*
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Environment
+.env
+.env.*.
