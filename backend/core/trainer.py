@@ -12,6 +12,7 @@ from sklearn.model_selection import StratifiedKFold, cross_validate,StratifiedGr
 import numpy as np
 from sklearn.utils import shuffle 
 from backend.utils.logger import logger
+from backend.core.model_selector import get_selected_models
 from backend.core.model_zoo import (
     detect_task,
     get_models,
@@ -193,7 +194,11 @@ def train_all_models(
     Train every model available for the detected task.
     """
 
-    models = get_models(task)
+    models = get_selected_models(
+            X=X_train,
+            y=y_train,
+            task=task,
+            )
 
     logger.info(f"Found {len(models)} models for {task}")
 
