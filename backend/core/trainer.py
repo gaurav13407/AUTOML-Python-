@@ -30,6 +30,7 @@ def create_result(
         cv_scores=None,
         cv_mean=None,
         cv_std=None,
+        cv_metric=None,
         ):
     # Standard result object returned after training a model 
 
@@ -45,6 +46,7 @@ def create_result(
             "cv_scores":"cv_score",
             "cv_mean":cv_mean,
             "cv_std":cv_std,
+            "cv_metric":cv_metric
             }
 
 
@@ -66,7 +68,7 @@ def cross_validate_model(
                 shuffle=True,
                 random_state=42,
                 )
-        scoring="accuracy"
+        scoring="f1_weighted"
     elif task == "regression":
         splitter=KFold(
                 n_splits=cv,
@@ -98,6 +100,7 @@ def cross_validate_model(
             "cv_mean":float(np.mean(scores)),
             "cv_std":float(np.std(scores)),
             "cv_folds":cv,
+            "cv_metric":scoring,
             }
     logger.info(
             f"CV Mean:{result['cv_mean']:4f}"
@@ -161,6 +164,7 @@ def train_single_model(
             cv_scores=cv_result["cv_scores"],
             cv_mean=cv_result["cv_mean"],
             cv_std=cv_result["cv_std"],
+            cv_metric=cv_result["cv_metric"],
         )
 
     except Exception as e:

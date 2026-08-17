@@ -272,6 +272,7 @@ def create_leaderboard(
 
             "cv_mean":result.get("cv_mean"),
             "cv_std":result.get("cv_std"),
+            "cv_metric":result.get("cv_metric"),
         }
 
         row.update(metrics)
@@ -359,10 +360,37 @@ def create_leaderboard(
 def get_best_model(
         evaluated_result:list[dict[str,Any]],
         leaderboard:pd.DataFrame,
+        task:str,
         ):
     if leaderboard.empty:
         logger.warning("CAnnot select best model:leaderboard is empty.")
-        return None 
+        return None
+
+    successful=[
+            result 
+            for result in evaluated_result
+            if result["status"]=="success"
+            ]
+    if not successful:
+        logger.warning(
+                "cannot select best model:no successful models."
+                )
+        return None
+
+    if task == "classification":
+        ranked=leaderboard.sort_values(
+                by=["cv_mean","cv_std","f1"],
+                ascending=[False,True,False],
+                )
+    elif task=="regression":
+        ranked=leaderboard.sort_values(
+                by=["cv_mean","cv_std","rmse"],
+                ascending=[True,True,True],
+                )
+    else:
+        raise ValueError(
+                f"Unknown Task:{task}"
+                )
 
     best_model_name=leaderboard.iloc[0]["model"]
 
@@ -385,6 +413,7 @@ def get_best_model(
                     "cv_scores":result.get("cv_scores",[]),
                     "cv_mean":result.get("cv_mean"),
                     "cv_std":result.get("cv_std"),
+                    "cv_metric":result.get("cv_metric")
                     }
     logger.warning(
                     f"Best Model '{best_model_name}' was not found"
@@ -425,6 +454,7 @@ def evaluate_models(
     best_model=get_best_model(
             evaluated_results,
             leaderboard,
+            task,
             )
     print("\n---------------Best Model--------------------")
     if best_model is not None:
