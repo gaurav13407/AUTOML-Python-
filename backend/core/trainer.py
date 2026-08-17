@@ -7,6 +7,10 @@ Train all machine learning models from the model zoo.
 import time
 from typing import Any
 
+from pandas.core.common import random_state
+from sklearn.model_selection import StratifiedKFold, cross_validate,StratifiedGroupKFold,KFold
+import numpy as np
+from sklearn.utils import shuffle 
 from backend.utils.logger import logger
 from backend.core.model_zoo import (
     detect_task,
@@ -23,6 +27,9 @@ def create_result(
         training_time:float,
         status:str="success",
         error:str | None=None,
+        cv_scores=None,
+        cv_mean=None,
+        cv_std=None,
         ):
     # Standard result object returned after training a model 
 
@@ -35,7 +42,69 @@ def create_result(
             "training_time":round(training_time,4),
             "status":status,
             "error":error,
+            "cv_scores":"cv_score",
+            "cv_mean":cv_mean,
+            "cv_std":cv_std,
             }
+
+
+def cross_validate_model(
+        model,
+        X_train,
+        y_train,
+        task:str,
+        cv:int=5,
+        ):
+    #========Perform cross_validation on the training data.===============
+    logger.info(
+            f"Running {cv}-fold cross_validation...."
+            )
+
+    if task=="classification":
+        splitter=StratifiedKFold(
+                n_splits=cv,
+                shuffle=True,
+                random_state=42,
+                )
+        scoring="accuracy"
+    elif task == "regression":
+        splitter=KFold(
+                n_splits=cv,
+                shuffle=True,
+                random_state=42,
+                )
+        scoring="neg_root_mean_squared_error"
+    else:
+        raise ValueError(
+                f"Unsupported task:{task}"
+                )
+
+    cv_result=cross_validate(
+            model,
+            X_train,
+            y_train,
+            cv=splitter,
+            scoring=scoring,
+            n_jobs=-1,
+            return_train_score=False,
+        )
+    scores=cv_result["test_score"]
+
+    if task=="regression":
+        scores=-scores
+
+    result={
+            "cv_scores":scores.tolist(),
+            "cv_mean":float(np.mean(scores)),
+            "cv_std":float(np.std(scores)),
+            "cv_folds":cv,
+            }
+    logger.info(
+            f"CV Mean:{result['cv_mean']:4f}"
+            f"CV Std:{result['cv_std']:4f}"
+            )
+    return result
+
 
 def train_single_model(
     model_name: str,
@@ -53,9 +122,18 @@ def train_single_model(
 
     model = model_info["model"]
 
+    cv_result=None
+
     start = time.perf_counter()
 
     try:
+        cv_result=cross_validate_model(
+                model=model,
+                X_train=X_train,
+                y_train=y_train,
+                task=task,
+                cv=5,
+            )
 
         model.fit(X_train, y_train)
 
@@ -79,6 +157,10 @@ def train_single_model(
             y_pred=y_pred,
             y_prob=y_prob,
             training_time=training_time,
+
+            cv_scores=cv_result["cv_scores"],
+            cv_mean=cv_result["cv_mean"],
+            cv_std=cv_result["cv_std"],
         )
 
     except Exception as e:

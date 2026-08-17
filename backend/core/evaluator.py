@@ -267,6 +267,11 @@ def create_leaderboard(
         row = {
             "model": result["model_name"],
             "training_time": result["training_time"],
+
+            #Cross-validate results 
+
+            "cv_mean":result.get("cv_mean"),
+            "cv_std":result.get("cv_std"),
         }
 
         row.update(metrics)
@@ -377,6 +382,9 @@ def get_best_model(
                     "training_time":result["training_time"],
                     "y_pred":result.get("y_pred"),
                     "y_prob":result.get("y_prob"),
+                    "cv_scores":result.get("cv_scores",[]),
+                    "cv_mean":result.get("cv_mean"),
+                    "cv_std":result.get("cv_std"),
                     }
     logger.warning(
                     f"Best Model '{best_model_name}' was not found"
