@@ -6,7 +6,7 @@ Responsible for saving and loading trained AutoML artifacts.
 
 An artifact contains:
     - trained model
-    - preprocessing transformer
+    - preprocessing transform
     - target encoder
     - metadata
     - task information
@@ -20,6 +20,7 @@ from typing import Any
 import joblib
 from numpy import save
 from pandas._libs.tslibs import timestamps 
+import pandas as pd 
 
 from backend.utils.logger import PROJECT_ROOT, logger
 
@@ -90,6 +91,7 @@ def save_model(
             "metrics": metrics,
             "model_name": model_name,
             "created_at": datetime.now().isoformat(),
+            "feature_names": preprocessor.feature_names_in_.tolist(), 
         }
 
     try:
@@ -170,6 +172,70 @@ def load_model(
     return artifact
 
 
+def predict(
+        filepath:str,
+        X:pd.DataFrame,
+        return_lables:bool=True,
+        ):
+    """
+    Predict using a saved AUTOML Artificat 
+    """
+    artifact=load_model(filepath)
+    model=artifact["model"]
+    preprocessor=artifact["preprocessor"]
+    target_encoder=artifact["target_encoder"]
+
+    expected_feature=artifact["feature_names"]
+
+    #=============VAlidate columns============
+    missing=[
+            col for col in expected_feature
+            if col not in X.columns
+            ]
+    if missing:
+        raise ValueError(
+                f"Missing required columns:{missing}"
+                )
+    X=X[expected_feature]
+
+    #================Preprocess==============
+    X_processed=preprocessor.transform(X)
+    predictions=model.predict(X_processed)
+    if(
+        return_lables
+        and target_encoder is not None
+        ):
+        predictions=target_encoder.inverse_transform(
+                predictions
+                )
+    logger.info(
+            f"Generated{len(predictions)}predictions"
+            f"Using {artifact['model_name']}"
+            )
+    return predictions
+
+
+
+
+def predict_proba(
+        filepath:str,
+        X:pd.DataFrame,
+        ):
+    #===============Return prediction probabilites for classificaton models.==================
+    artifact=load_model("model")
+
+    model=artifact["model"]
+    preprocessor=artifact["preprocessor"]
+
+    if not hasattr(model,"predict_proba"):
+        raise ValueError(
+                f"{artifact['model_name']}"
+                "does not support probabilites."
+                )
+    X=X[artifact["feature_names"]]
+
+    X_processed=preprocessor.transform(X)
+    return model.predict_proba(X_processed)
 #=========List saved Model=====================
 def list_saved_models() -> list[str]:
     """
@@ -195,22 +261,49 @@ def list_saved_models() -> list[str]:
 
 if __name__ == "__main__":
 
-    print(
-        "\n========== SAVED MODELS ==========\n"
-    )
+    import pandas as pd
 
     models = list_saved_models()
 
     if not models:
 
-        print(
-            "No saved models found."
-        )
+        print("No saved models.")
+        exit()
 
-    else:
+    model_path = models[-1]
 
-        for model in models:
+    print("\nUsing model:")
+    print(model_path)
 
-            print(
-                model
-            )
+    artifact = load_model(model_path)
+
+    print("\nModel:", artifact["model_name"])
+    print("Task :", artifact["task"])
+
+    # Iris example
+    sample = pd.DataFrame(
+        [
+            {
+                "SepalLengthCm": 5.1,
+                "SepalWidthCm": 3.5,
+                "PetalLengthCm": 1.4,
+                "PetalWidthCm": 0.2,
+            },
+            {
+                "SepalLengthCm": 6.5,
+                "SepalWidthCm": 3.0,
+                "PetalLengthCm": 5.5,
+                "PetalWidthCm": 2.0,
+            },
+        ]
+    )
+
+    preds = predict(
+        model_path,
+        sample,
+    )
+
+    print("\nPredictions:")
+
+    for p in preds:
+        print(" •", p)
