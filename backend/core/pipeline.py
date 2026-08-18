@@ -22,6 +22,8 @@ It does not contain model-specific logic.
 
 from typing import Any
 
+from joblib.parallel import FallbackToBackend
+
 from backend.utils.logger import logger
 
 from backend.core.preprocessing import (
@@ -39,6 +41,7 @@ from backend.core.trainer import (
 from backend.core.evaluator import (
     evaluate_models,
 )
+from backend.core.tuner import tune_model
 from backend.core.model_manager import save_model
 
 def run_automl(
@@ -142,6 +145,102 @@ def run_automl(
         y_test=y_test,
         task=task,
     )
+
+    #=========================================================
+    #Step 5: HyperParameter Tuning
+    #=====================================
+    logger.info("STEP 5/6:HyperParameter Tuning")
+
+    tuned_result=None 
+    if best_model is not None:
+        try:
+            tuned_result=tune_model(
+                    model_name=best_model["model_name"],
+                    X_train=X_train,
+                    y_train=y_train,
+                    n_trials=20,
+                    )
+            logger.info(f"Tunning completed for {best_model['model_name']}")
+            logger.info(f"best tunning score:"
+                        f"{tuned_result['best_score']:.6f}")
+
+            logger.info(f"Best parameters:"
+                        f"{tuned_result['best_params']}")
+        except ValueError as e:
+            logger.warning(
+                    f"No tuner available for"
+                    f"{best_model['model_name']}:{e}"
+                    )
+        except Exception:
+            logger.exception(
+                    "HyperParameter tunning failed."
+                    )
+
+    #==========================================================
+    # Step 6:ORIGINAL VS TUNED MODEL 
+    #=======================================================
+
+    final_model=best_model 
+
+    if tuned_result is not None:
+        logger.info("Evaluating tuned model on test set....")
+
+        tuned_model=tuned_result["model"]
+        tuned_model.fit(
+                X_train,
+                y_train,
+                )
+        tuned_pred=tuned_model.predict(
+                X_test
+                )
+        tuned_prob=None 
+
+        if hasattr(tuned_model,"predict_proba"):
+            tuned_prob=tuned_model.predict_proba(X_test)
+        from sklearn.metrics import f1_score
+
+        tuned_f1=f1_score(
+                y_test,
+                tuned_pred,
+                average="weighted",
+                )
+        original_f1=best_model["metrics"].get("f1",0,)
+
+        logger.info(
+        f"Original {best_model['model_name']} "
+        f"F1: {original_f1:.6f}"
+            )
+
+        logger.info(
+                f"Tuned {best_model['model_name']}"
+                f"F1:{tuned_f1:.6f}"
+                )
+        if tuned_f1>original_f1:
+            logger.info(
+                    "Tuned model is better."
+                    "Using tuned model."
+                    )
+            final_model={
+                    **best_model,
+                    "model":tuned_model,
+                    "y_pred":tuned_pred,
+                    "y_prob":tuned_prob,
+                    "metrics":{
+                        **best_model["metrics"],
+                        "f1":tuned_f1,
+                        },
+                    "tuned":True,
+                    "best_params":tuned_result[
+                        "best_params"
+                        ],
+                    }
+        else:
+            logger.info(
+                    "Oringal model is better."
+                    "Keeping Oringal model."
+                    )
+            final_model["tuned"]=False
+
 
     #=========================================================
     #==============================SAVE BEST MODEL==========

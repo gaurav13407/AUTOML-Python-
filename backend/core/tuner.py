@@ -7,6 +7,7 @@ Hyperparameter tuning using Optuna.
 import optuna
 import numpy as np
 
+from pandas.core.common import random_state
 from sklearn.model_selection import cross_val_score
 from sklearn.svm import SVC
 
@@ -125,6 +126,54 @@ def tune_svm(
     }
 
 
+def build_tuned_svm(best_params):
+    #==========Build an SVM Optuna's best parameters
+
+    return SVC(
+            C=best_params["C"],
+            gamma=best_params["gamma"],
+            kernel=best_params["kernel"],
+            probability=True,
+            random_state=42,
+            )
+
+
+def tune_model(
+    model_name: str,
+    X_train,
+    y_train,
+    n_trials: int = 20,
+):
+    """
+    Tune a selected model using Optuna.
+
+    Currently supported:
+        - SVM
+    """
+
+    if model_name == "SVM":
+
+        tuning_result = tune_svm(
+            X_train=X_train,
+            y_train=y_train,
+            n_trials=n_trials,
+        )
+
+        tuned_model = build_tuned_svm(
+            tuning_result["best_params"]
+        )
+
+        return {
+            "model_name": model_name,
+            "model": tuned_model,
+            "best_params": tuning_result["best_params"],
+            "best_score": tuning_result["best_score"],
+        }
+
+    raise ValueError(
+        f"Hyperparameter tuning not implemented "
+        f"for model: {model_name}"
+    )
 # ============================================================
 # Test
 # ============================================================
@@ -147,22 +196,16 @@ if __name__ == "__main__":
         stratify=y,
     )
 
-    result = tune_svm(
+    result = tune_model(
+        model_name="SVM",
         X_train=X_train,
         y_train=y_train,
         n_trials=20,
     )
 
-    print(
-        "\n========== SVM TUNING RESULT ==========\n"
-    )
+    print("\n========== TUNING RESULT ==========\n")
 
-    print(
-        "Best Score :",
-        result["best_score"],
-    )
-
-    print(
-        "Best Params:",
-        result["best_params"],
-    )
+    print("Model      :", result["model_name"])
+    print("Best Score :", result["best_score"])
+    print("Parameters :", result["best_params"])
+    print("Model      :", result["model"])
